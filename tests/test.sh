@@ -288,7 +288,7 @@ test_pages_document_is_valid_html() {
     fail "GitHub Pages index is missing"
     return 1
   }
-  xmllint --html --noout "$page" >/dev/null 2>&1 || fail "GitHub Pages index is not valid HTML"
+  xmllint --noout "$page" >/dev/null 2>&1 || fail "GitHub Pages index is not well-formed HTML"
 }
 
 run_test() {
