@@ -337,6 +337,37 @@ test_dmg_builder_stages_exact_payload_and_valid_checksum() {
   [[ $result -eq 0 ]] || fail "generated checksum did not verify"
 }
 
+test_dmg_builder_handles_hdiutil_output_name_without_extra_extension() {
+  local temp_dir app output_dir fake_hdiutil result
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  output_dir="$temp_dir/dist"
+  fake_hdiutil="$temp_dir/fake-hdiutil"
+  mkdir -p "$app/Contents/MacOS"
+  print -r -- 'fake app' > "$app/Contents/MacOS/launcher"
+  printf '%s\n' \
+    '#!/bin/zsh' \
+    'output=${@: -1}' \
+    'if [[ "$output" == *.dmg ]]; then' \
+    '  : > "$output"' \
+    'else' \
+    '  : > "$output.dmg"' \
+    'fi' > "$fake_hdiutil"
+  chmod +x "$fake_hdiutil"
+
+  DEADLOCK_RUNNER_HDIUTIL="$fake_hdiutil" \
+    zsh "$ROOT_DIR/scripts/build-dmg.sh" "$app" "$output_dir" >/dev/null
+  result=$?
+  if [[ $result -eq 0 && -f "$output_dir/Deadlock-Runner-macOS.dmg" ]]; then
+    result=0
+  else
+    fail "DMG builder did not normalize hdiutil's output filename"
+    result=1
+  fi
+  rm -rf "$temp_dir"
+  return $result
+}
+
 test_pages_document_is_valid_html() {
   local page="$ROOT_DIR/docs/index.html"
   [[ -f "$page" ]] || {
@@ -368,6 +399,7 @@ run_test test_prefix_links_are_sanitized_then_refreshed_for_current_user
 run_test test_privacy_scanner_rejects_account_and_game_data
 run_test test_privacy_scanner_accepts_bootstrap_only_prefix
 run_test test_dmg_builder_stages_exact_payload_and_valid_checksum
+run_test test_dmg_builder_handles_hdiutil_output_name_without_extra_extension
 run_test test_pages_document_is_valid_html
 
 print -- "$PASS_COUNT passed, $FAIL_COUNT failed"

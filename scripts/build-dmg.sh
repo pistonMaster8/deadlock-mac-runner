@@ -25,9 +25,11 @@ mkdir -p "$OUTPUT_DIR"
 STAGING="$OUTPUT_DIR/.dmg-staging"
 DMG="$OUTPUT_DIR/Deadlock-Runner-macOS.dmg"
 CHECKSUM="$DMG.sha256"
+DMG_TEMP="$OUTPUT_DIR/Deadlock-Runner-macOS.tmp.dmg"
+HDIUTIL_BIN=${DEADLOCK_RUNNER_HDIUTIL:-hdiutil}
 
 rm -rf "$STAGING"
-rm -f "$DMG" "$CHECKSUM" "$DMG.tmp"
+rm -f "$DMG" "$CHECKSUM" "$DMG_TEMP" "$DMG.tmp" "$DMG.tmp.dmg"
 mkdir -p "$STAGING"
 
 rsync -a "$APP_PATH" "$STAGING/"
@@ -37,13 +39,13 @@ cp "$ROOT_DIR/INSTALL.txt" "$STAGING/INSTALL.txt"
 if [[ ${DEADLOCK_RUNNER_TEST_MODE:-0} == 1 ]]; then
   tar -cf "$DMG" -C "$STAGING" .
 else
-  hdiutil create \
+  "$HDIUTIL_BIN" create \
     -volname 'Deadlock Runner' \
     -srcfolder "$STAGING" \
     -format UDZO \
     -imagekey zlib-level=9 \
-    "$DMG.tmp"
-  mv -f "$DMG.tmp" "$DMG"
+    "$DMG_TEMP"
+  mv -f "$DMG_TEMP" "$DMG"
   rm -rf "$STAGING"
 fi
 
