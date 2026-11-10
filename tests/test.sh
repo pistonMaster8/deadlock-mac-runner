@@ -205,6 +205,8 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
   [[ ! -e "$built_app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock" ]] || fail "Deadlock game files were staged" || return 1
   [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/SteamSetup.exe" ]] || fail "Steam installer was not staged" || return 1
   [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/bootstrap.cmd" ]] || fail "bootstrap command was not staged" || return 1
+  [[ -L "$built_app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir" ]] || fail "neutral Sikarugir profile alias was not staged" || return 1
+  [[ "$(readlink "$built_app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir")" == runner ]] || fail "neutral Sikarugir profile alias does not target runner" || return 1
   [[ -x "$built_app/Contents/Resources/Scripts/DeadlockFixes" ]] || fail "Deadlock startup patcher was not installed" || return 1
   [[ -f "$built_app/Contents/MacOS/launcher" && ! -L "$built_app/Contents/MacOS/launcher" ]] || fail "main launcher is still a symlink and cannot be signed" || return 1
 

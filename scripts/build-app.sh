@@ -76,6 +76,11 @@ fi
 
 WINEPREFIX="$PREFIX" zsh "$ROOT_DIR/scripts/sanitize-prefix.sh"
 
+# Sikarugir creates per-macOS-user aliases to this neutral Windows profile.
+# Keep the alias relative so it remains valid after the app is copied.
+mkdir -p "$PREFIX/drive_c/users/runner"
+ln -sfn runner "$PREFIX/drive_c/users/Sikarugir"
+
 SETUP_DIR="$PREFIX/drive_c/DeadlockSetup"
 mkdir -p "$SETUP_DIR"
 cp "$ROOT_DIR/app/bootstrap.cmd" "$SETUP_DIR/bootstrap.cmd"
