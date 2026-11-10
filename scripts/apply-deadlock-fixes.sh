@@ -51,37 +51,64 @@ patch_controller_mapping() {
   temp_file=$(mktemp "$file.deadlock-runner.XXXXXX") || return 1
 
   awk '
-    {
-      line = $0
-      if (line ~ /"revision"[[:space:]]+"112"/) {
-        sub(/"112"/, "\"113\"", line)
+    function brace_delta(value, copy, count) {
+      copy = value
+      count = gsub(/\{/, "{", copy)
+      copy = value
+      count -= gsub(/\}/, "}", copy)
+      return count
+    }
+    function emit_bindings(first, last, k, has_ping, has_tab, tab_seen, indent) {
+      has_ping = has_tab = tab_seen = 0
+      for (k = first; k <= last; k++) {
+        if (lines[k] ~ /"binding"[[:space:]]+"game_action GameControls Ping, , "/) has_ping = 1
+        if (lines[k] ~ /"binding"[[:space:]]+"key_press TAB, , "/) has_tab = 1
       }
-      print line
-      if (!has_tab && line ~ /"binding"[[:space:]]+"game_action GameControls Ping, , "/) {
-        indent = line
-        sub(/"binding".*/, "", indent)
-        print indent "\"binding\"\t\t\"key_press TAB, , \""
-        inserted = 1
+      for (k = first; k <= last; k++) {
+        if (has_ping && lines[k] ~ /"binding"[[:space:]]+"key_press TAB, , "/) {
+          tab_seen++
+          if (tab_seen > 1) continue
+        }
+        print lines[k]
+        if (has_ping && !has_tab && lines[k] ~ /"binding"[[:space:]]+"game_action GameControls Ping, , "/) {
+          indent = lines[k]
+          sub(/"binding".*/, "", indent)
+          print indent "\"binding\"\t\t\"key_press TAB, , \""
+        }
       }
     }
-    /"binding"[[:space:]]+"key_press TAB, , "/ { has_tab = 1 }
+    {
+      line = $0
+      if (line ~ /"revision"[[:space:]]+"112"/) sub(/"112"/, "\"113\"", line)
+      lines[NR] = line
+    }
+    END {
+      i = 1
+      while (i <= NR) {
+        if (lines[i] ~ /^[[:space:]]*"bindings"[[:space:]]*$/ && i < NR && lines[i + 1] ~ /^[[:space:]]*\{/) {
+          depth = 0
+          last = 0
+          for (j = i + 1; j <= NR; j++) {
+            depth += brace_delta(lines[j])
+            if (depth == 0) {
+              last = j
+              break
+            }
+          }
+          if (last) {
+            emit_bindings(i, last)
+            i = last + 1
+            continue
+          }
+        }
+        print lines[i]
+        i++
+      }
+    }
   ' "$file" > "$temp_file" || {
     rm -f "$temp_file"
     return 1
   }
-
-  if grep -Fq '"binding"' "$file" && grep -Fq 'key_press TAB, , ' "$file"; then
-    # The file was already patched; remove any line inserted before the original TAB line.
-    awk '
-      /"binding"[[:space:]]+"key_press TAB, , "/ {
-        if (seen_tab) next
-        seen_tab = 1
-      }
-      { print }
-    ' "$file" > "$temp_file"
-    sed -E 's#^([[:space:]]*"revision"[[:space:]]+)"112"#\1"113"#' "$temp_file" > "$temp_file.revision"
-    mv -f "$temp_file.revision" "$temp_file"
-  fi
 
   install_if_changed "$file" "$temp_file"
 }

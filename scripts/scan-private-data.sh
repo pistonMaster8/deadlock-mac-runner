@@ -23,11 +23,18 @@ done < <(find "$TARGET" \( \
   -iname 'ssfn*' \
 \) -print0 2>/dev/null)
 
-local sensitive_file
-while IFS= read -r sensitive_file; do
-  [[ -n "$sensitive_file" ]] && findings+=("sensitive Steam marker: ${sensitive_file#$TARGET/}")
-done < <(rg -l -i --glob '*.vdf' --glob '*.reg' \
-  '(SharedAuth|apptickets|CloudKey|AccountName|PersonaName)' "$TARGET" 2>/dev/null || true)
+local sensitive_file scan_status
+typeset -a sensitive_files
+sensitive_files=("$TARGET"/**/*.(vdf|reg)(N.))
+for sensitive_file in "${sensitive_files[@]}"; do
+  grep -Eiq '(SharedAuth|apptickets|CloudKey|AccountName|PersonaName)' "$sensitive_file" 2>/dev/null
+  scan_status=$?
+  case $scan_status in
+    0) findings+=("sensitive Steam marker: ${sensitive_file#$TARGET/}") ;;
+    1) ;;
+    *) findings+=("privacy scan could not read: ${sensitive_file#$TARGET/}") ;;
+  esac
+done
 
 local link target
 while IFS= read -r -d '' link; do

@@ -36,6 +36,8 @@ rsync -aE "$APP_PATH" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 cp "$ROOT_DIR/INSTALL.txt" "$STAGING/INSTALL.txt"
 
+zsh "$ROOT_DIR/scripts/scan-private-data.sh" "$STAGING/${APP_PATH:t}"
+
 if [[ ${DEADLOCK_RUNNER_TEST_MODE:-0} == 1 ]]; then
   tar -cf "$DMG" -C "$STAGING" .
 else

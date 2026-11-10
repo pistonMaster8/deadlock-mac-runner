@@ -26,7 +26,8 @@
       <ol class="steps">
         <li><strong>Install</strong><span>Open the DMG and drag Deadlock Runner into Applications.</span></li>
         <li><strong>Open safely</strong><span>Control-click the app, choose Open, and approve the macOS warning.</span></li>
-        <li><strong>Sign in</strong><span>The official Steam installer runs. Sign in and install Deadlock from your Library.</span></li>
+        <li><strong>Sign in</strong><span>The official Steam installer runs. Sign in and install Deadlock from your Library, but do not launch it yet.</span></li>
+        <li><strong>Apply fixes</strong><span>Quit Steam and the runner, then reopen Deadlock Runner so the installed game and per-account settings are patched.</span></li>
         <li><strong>Play</strong><span>Launch Deadlock in Steam. The runner reapplies its fixes whenever it starts.</span></li>
       </ol>
     </section>
@@ -46,6 +47,7 @@
       <p class="section-number">03</p>
       <h2 id="privacy-heading">Your Steam account stays yours</h2>
       <p>The download contains no login, userdata, installed game, or personal Steam library. A release-time privacy scan checks the app before the DMG is created. Steam and Deadlock come through Valve’s normal installer and client.</p>
+      <p><strong>Before updating:</strong> Steam and game data live in <code>Deadlock Runner.app/Contents/SharedSupport/prefix</code>. Quit Steam and the runner, copy that folder out of the old app, install the update, and restore the backup before reopening Deadlock Runner.</p>
     </section>
   </main>
   <footer>

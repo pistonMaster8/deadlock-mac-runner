@@ -16,7 +16,10 @@ Install
 4. Wait while the official Steam installer runs and updates itself.
 5. Sign in to Steam. Do not share your login or Steam Guard code.
 6. Install Deadlock from your Steam Library.
-7. Launch Deadlock from Steam.
+7. Do not launch Deadlock yet. Quit Steam and the runner.
+8. Reopen Deadlock Runner so it can patch the installed game and your
+   per-account settings.
+9. Launch Deadlock from Steam.
 
 The runner automatically selects DirectX 11, applies safe Mac display
 defaults when a Deadlock video file exists, and reapplies the known Xbox
@@ -40,6 +43,17 @@ Troubleshooting
 - Controller labels/input are wrong: reopen the runner, then reconnect the
   controller before launching Deadlock.
 - Steam setup did not finish: quit the app and open it again.
+
+Updating without losing Steam or Deadlock
+-----------------------------------------
+Steam, the game, and your settings are stored inside:
+
+  Deadlock Runner.app/Contents/SharedSupport/prefix
+
+Before replacing the app, quit Steam and the runner, Control-click the old
+app, choose Show Package Contents, and copy that prefix folder somewhere
+safe. Install the new app, replace its clean prefix folder with your backup,
+then reopen Deadlock Runner. Keep the backup until everything launches.
 
 Project and updates:
 https://github.com/pistonMaster8/deadlock-mac-runner

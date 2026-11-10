@@ -13,7 +13,9 @@ A community Wine wrapper that gets a friend from a DMG to the Windows Steam clie
 
 3. Open the DMG and drag **Deadlock Runner.app** to **Applications**.
 4. Control-click the installed app, choose **Open**, and approve the macOS warning.
-5. Let the official Steam installer finish, sign in, install Deadlock, and launch it from Steam.
+5. Let the official Steam installer finish, sign in, and install Deadlock. Do not launch the game yet.
+6. Quit Steam and the runner, then reopen Deadlock Runner so the game files and per-account settings receive their fixes.
+7. Launch Deadlock from Steam.
 
 Requirements: Apple Silicon, macOS 14.6 or newer, a Steam account with Deadlock access, and enough free storage for the game.
 
@@ -41,6 +43,10 @@ The build pipeline performs a privacy scan before creating the DMG. The DMG is p
 - **Controller labels or input are wrong:** reopen the runner, reconnect the controller, then launch Deadlock.
 - **Steam setup stops:** close and reopen the app to retry.
 - **macOS says the app is damaged:** verify the SHA-256 first, then follow the quarantine instructions in `INSTALL.txt`. The build is ad-hoc signed and is not Apple-notarized.
+
+## Updating without losing Steam or Deadlock
+
+Steam, Deadlock, and your local settings live inside `Deadlock Runner.app/Contents/SharedSupport/prefix`. Before replacing the app with a newer release, quit Steam and the runner, Control-click the old app, choose **Show Package Contents**, and copy that `prefix` folder somewhere safe. Install the new app, then replace its clean `prefix` folder with your backup before reopening Deadlock Runner. Keep the backup until Steam and Deadlock both launch successfully.
 
 ## Build locally
 

@@ -25,6 +25,10 @@ if [[ "$OUTPUT_DIR" == / || "$OUTPUT_DIR" == "$SOURCE_APP" ]]; then
 fi
 
 DEST_APP="$OUTPUT_DIR/Deadlock Runner.app"
+if [[ "$DEST_APP" == "$SOURCE_APP" || "$DEST_APP" == "$SOURCE_APP"/* || "$SOURCE_APP" == "$DEST_APP"/* ]]; then
+  print -u2 -- "refusing overlapping source and destination: $SOURCE_APP -> $DEST_APP"
+  exit 2
+fi
 rm -rf "$DEST_APP"
 mkdir -p "$OUTPUT_DIR"
 
@@ -75,6 +79,69 @@ else
 fi
 
 WINEPREFIX="$PREFIX" zsh "$ROOT_DIR/scripts/sanitize-prefix.sh"
+
+configure_mac_keyboard_registry() {
+  local registry_file=$1
+  local replacement
+  mkdir -p "${registry_file:h}"
+  if [[ ! -f "$registry_file" ]]; then
+    print -r -- 'WINE REGISTRY Version 2' > "$registry_file"
+  fi
+  replacement=$(mktemp "$registry_file.deadlock-runner.XXXXXX") || return 1
+  awk '
+    BEGIN {
+      keys[1] = "LeftCommandIsCtrl"
+      keys[2] = "RightCommandIsCtrl"
+      keys[3] = "LeftOptionIsAlt"
+      keys[4] = "RightOptionIsAlt"
+    }
+    function reset_seen(  i) {
+      for (i = 1; i <= 4; i++) seen[keys[i]] = 0
+    }
+    function emit_missing(  i, key) {
+      for (i = 1; i <= 4; i++) {
+        key = keys[i]
+        if (!seen[key]) print "\"" key "\"=\"Y\""
+      }
+    }
+    {
+      if ($0 ~ /^\[/) {
+        if (in_section) emit_missing()
+        in_section = (index($0, "[Software\\\\Wine\\\\Mac Driver]") == 1)
+        if (in_section) {
+          found = 1
+          reset_seen()
+        }
+      }
+      if (in_section) {
+        for (i = 1; i <= 4; i++) {
+          key = keys[i]
+          if (index($0, "\"" key "\"=") == 1) {
+            print "\"" key "\"=\"Y\""
+            seen[key] = 1
+            next
+          }
+        }
+      }
+      print
+    }
+    END {
+      if (in_section) emit_missing()
+      if (!found) {
+        print ""
+        print "[Software\\\\Wine\\\\Mac Driver] 0"
+        reset_seen()
+        emit_missing()
+      }
+    }
+  ' "$registry_file" > "$replacement" || {
+    rm -f "$replacement"
+    return 1
+  }
+  mv -f "$replacement" "$registry_file"
+}
+
+configure_mac_keyboard_registry "$PREFIX/user.reg"
 
 # Sikarugir creates per-macOS-user aliases to this neutral Windows profile.
 # Keep the alias relative so it remains valid after the app is copied.

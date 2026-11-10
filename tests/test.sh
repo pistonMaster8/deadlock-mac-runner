@@ -81,6 +81,26 @@ test_controller_tab_binding_is_added_once() {
   return $result
 }
 
+test_controller_patch_preserves_unrelated_tab_bindings() {
+  local temp_dir deadlock_root mapping before after
+  temp_dir=$(mktemp -d)
+  deadlock_root=$(make_deadlock_tree "$temp_dir/Deadlock")
+  mapping="$deadlock_root/game/citadel/cfg/xbox_one_mapping.vdf"
+  printf '%b\n' '"controller_mappings"\n{\n\t"revision"\t\t"112"\n\t"left_button"\n\t{\n\t\t"bindings"\n\t\t{\n\t\t\t"binding"\t\t"key_press TAB, , "\n\t\t}\n\t}\n\t"right_bumper"\n\t{\n\t\t"bindings"\n\t\t{\n\t\t\t"binding"\t\t"game_action GameControls Ping, , "\n\t\t}\n\t}\n\t"touch"\n\t{\n\t\t"bindings"\n\t\t{\n\t\t\t"binding"\t\t"key_press TAB, , "\n\t\t}\n\t}\n}' > "$mapping"
+
+  run_patcher "$temp_dir/prefix" "$deadlock_root" || return 1
+  before=$(shasum -a 256 "$mapping")
+  run_patcher "$temp_dir/prefix" "$deadlock_root" || return 1
+  after=$(shasum -a 256 "$mapping")
+
+  assert_count 3 $'"binding"\t\t"key_press TAB, , "' "$mapping" || return 1
+  awk '/GameControls Ping/{getline; if ($0 ~ /key_press TAB/) found=1} END{exit !found}' "$mapping" || fail "Ping binding did not receive its own adjacent TAB binding" || return 1
+  [[ "$before" == "$after" ]] || fail "scoped controller patch was not idempotent" || return 1
+  local result=0
+  rm -rf "$temp_dir"
+  return $result
+}
+
 test_user_glyph_mode_is_forced_to_controller() {
   local temp_dir cfg_dir config_file
   temp_dir=$(mktemp -d)
@@ -207,6 +227,10 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
   [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/bootstrap.cmd" ]] || fail "bootstrap command was not staged" || return 1
   [[ -L "$built_app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir" ]] || fail "neutral Sikarugir profile alias was not staged" || return 1
   [[ "$(readlink "$built_app/Contents/SharedSupport/prefix/drive_c/users/Sikarugir")" == runner ]] || fail "neutral Sikarugir profile alias does not target runner" || return 1
+  local keyboard_key
+  for keyboard_key in LeftCommandIsCtrl RightCommandIsCtrl LeftOptionIsAlt RightOptionIsAlt; do
+    assert_contains "$built_app/Contents/SharedSupport/prefix/user.reg" "\"$keyboard_key\"=\"Y\"" || return 1
+  done
   [[ -x "$built_app/Contents/Resources/Scripts/DeadlockFixes" ]] || fail "Deadlock startup patcher was not installed" || return 1
   [[ -f "$built_app/Contents/MacOS/launcher" && ! -L "$built_app/Contents/MacOS/launcher" ]] || fail "main launcher is still a symlink and cannot be signed" || return 1
 
@@ -218,6 +242,23 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
   local result=0
   rm -rf "$temp_dir"
   return $result
+}
+
+test_app_builder_rejects_source_destination_overlap_without_deleting_source() {
+  local temp_dir source_app steam_setup result
+  temp_dir=$(mktemp -d)
+  source_app="$temp_dir/Deadlock Runner.app"
+  steam_setup="$temp_dir/SteamSetup.exe"
+  create_fake_source_app "$source_app"
+  print -r -- 'must survive' > "$source_app/source-marker.txt"
+  print -r -- 'official installer fixture' > "$steam_setup"
+
+  DEADLOCK_RUNNER_TEST_MODE=1 STEAM_SETUP_SOURCE="$steam_setup" \
+    zsh "$ROOT_DIR/scripts/build-app.sh" "$source_app" "$temp_dir" >/dev/null 2>&1
+  result=$?
+  [[ $result -ne 0 ]] || fail "builder accepted an overlapping source and destination" || return 1
+  [[ -f "$source_app/source-marker.txt" ]] || fail "builder deleted the source app while rejecting overlap" || return 1
+  rm -rf "$temp_dir"
 }
 
 test_app_builder_returns_absolute_path_for_relative_output() {
@@ -311,6 +352,19 @@ test_privacy_scanner_accepts_bootstrap_only_prefix() {
   [[ $result -eq 0 ]] || fail "privacy scanner rejected a bootstrap-only prefix"
 }
 
+test_privacy_scanner_fails_closed_without_ripgrep() {
+  local temp_dir app result
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  mkdir -p "$app/Contents/SharedSupport/prefix"
+  print -r -- '[Software\\Valve\\Steam]' '"AccountName"="friend"' > "$app/Contents/SharedSupport/prefix/user.reg"
+
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin /bin/zsh "$ROOT_DIR/scripts/scan-private-data.sh" "$app" >/dev/null 2>&1
+  result=$?
+  rm -rf "$temp_dir"
+  [[ $result -ne 0 ]] || fail "privacy scanner passed sensitive registry data without ripgrep"
+}
+
 test_dmg_builder_stages_exact_payload_and_valid_checksum() {
   local temp_dir app output_dir staging actual expected result
   temp_dir=$(mktemp -d)
@@ -372,6 +426,21 @@ test_dmg_builder_handles_hdiutil_output_name_without_extra_extension() {
   return $result
 }
 
+test_dmg_builder_rejects_contaminated_app() {
+  local temp_dir app output_dir result
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  output_dir="$temp_dir/dist"
+  mkdir -p "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config"
+  print -r -- 'account data' > "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config/loginusers.vdf"
+
+  DEADLOCK_RUNNER_TEST_MODE=1 zsh "$ROOT_DIR/scripts/build-dmg.sh" "$app" "$output_dir" >/dev/null 2>&1
+  result=$?
+  [[ $result -ne 0 ]] || fail "DMG builder accepted a contaminated app" || return 1
+  [[ ! -e "$output_dir/Deadlock-Runner-macOS.dmg" ]] || fail "DMG builder left a distributable after privacy failure" || return 1
+  rm -rf "$temp_dir"
+}
+
 test_pages_document_is_valid_html() {
   local page="$ROOT_DIR/docs/index.html"
   [[ -f "$page" ]] || {
@@ -379,6 +448,15 @@ test_pages_document_is_valid_html() {
     return 1
   }
   xmllint --noout "$page" >/dev/null 2>&1 || fail "GitHub Pages index is not well-formed HTML"
+}
+
+test_docs_require_relaunch_before_first_deadlock_run_and_safe_updates() {
+  local file
+  for file in "$ROOT_DIR/README.md" "$ROOT_DIR/INSTALL.txt" "$ROOT_DIR/docs/index.html"; do
+    grep -Eiq 'quit (Steam|the runner)' "$file" || fail "$file does not tell first-run users to quit Steam" || return 1
+    grep -Eiq 'reopen Deadlock Runner' "$file" || fail "$file does not require reopening before launching Deadlock" || return 1
+    grep -Fqi 'Contents/SharedSupport/prefix' "$file" || fail "$file does not document backing up the in-app prefix before updates" || return 1
+  done
 }
 
 run_test() {
@@ -394,17 +472,22 @@ run_test() {
 run_test test_missing_files_are_normal
 run_test test_boot_renderer_changes_to_dx11_and_backs_up
 run_test test_controller_tab_binding_is_added_once
+run_test test_controller_patch_preserves_unrelated_tab_bindings
 run_test test_user_glyph_mode_is_forced_to_controller
 run_test test_video_config_gets_safe_mac_defaults_without_changing_resolution
 run_test test_second_run_is_byte_identical
 run_test test_app_builder_excludes_personal_prefix_and_backup_engine
+run_test test_app_builder_rejects_source_destination_overlap_without_deleting_source
 run_test test_app_builder_returns_absolute_path_for_relative_output
 run_test test_prefix_links_are_sanitized_then_refreshed_for_current_user
 run_test test_privacy_scanner_rejects_account_and_game_data
 run_test test_privacy_scanner_accepts_bootstrap_only_prefix
+run_test test_privacy_scanner_fails_closed_without_ripgrep
 run_test test_dmg_builder_stages_exact_payload_and_valid_checksum
 run_test test_dmg_builder_handles_hdiutil_output_name_without_extra_extension
+run_test test_dmg_builder_rejects_contaminated_app
 run_test test_pages_document_is_valid_html
+run_test test_docs_require_relaunch_before_first_deadlock_run_and_safe_updates
 
 print -- "$PASS_COUNT passed, $FAIL_COUNT failed"
 (( FAIL_COUNT == 0 ))
