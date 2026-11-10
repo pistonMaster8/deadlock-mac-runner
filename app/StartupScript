@@ -6,4 +6,5 @@ cd "$(dirname "$0")/../../" || exit 1
 CONTENTSFOLD=$PWD
 export WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix"
 
+"$CONTENTSFOLD/Resources/Scripts/UserLinks"
 "$CONTENTSFOLD/Resources/Scripts/DeadlockFixes"

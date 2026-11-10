@@ -242,6 +242,31 @@ test_app_builder_returns_absolute_path_for_relative_output() {
   return $result
 }
 
+test_prefix_links_are_sanitized_then_refreshed_for_current_user() {
+  local temp_dir prefix user_dir friend_home result
+  temp_dir=$(mktemp -d)
+  prefix="$temp_dir/prefix"
+  user_dir="$prefix/drive_c/users/runner"
+  friend_home="$temp_dir/friend home"
+  mkdir -p "$user_dir" "$friend_home/Documents" "$friend_home/Desktop" "$friend_home/Downloads" \
+    "$friend_home/Music" "$friend_home/Pictures" "$friend_home/Movies" "$friend_home/Templates"
+  ln -s '/Users/builder/Documents' "$user_dir/Documents"
+  ln -s '/Users/builder/Desktop' "$user_dir/Desktop"
+
+  WINEPREFIX="$prefix" zsh "$ROOT_DIR/scripts/sanitize-prefix.sh" || return 1
+  [[ ! -e "$user_dir/Documents" && ! -L "$user_dir/Documents" ]] || fail "builder Documents link survived sanitization" || return 1
+  [[ ! -e "$user_dir/Desktop" && ! -L "$user_dir/Desktop" ]] || fail "builder Desktop link survived sanitization" || return 1
+
+  HOME="$friend_home" WINEPREFIX="$prefix" zsh "$ROOT_DIR/scripts/refresh-user-links.sh" || return 1
+  [[ "$(readlink "$user_dir/Documents")" == "$friend_home/Documents" ]] || fail "Documents did not refresh to the current home" || return 1
+  [[ "$(readlink "$user_dir/Desktop")" == "$friend_home/Desktop" ]] || fail "Desktop did not refresh to the current home" || return 1
+  [[ "$(readlink "$user_dir/Downloads")" == "$friend_home/Downloads" ]] || fail "Downloads did not refresh to the current home" || return 1
+
+  result=0
+  rm -rf "$temp_dir"
+  return $result
+}
+
 test_privacy_scanner_rejects_account_and_game_data() {
   local temp_dir app steam_root result
   [[ -x "$ROOT_DIR/scripts/scan-private-data.sh" ]] || {
@@ -335,6 +360,7 @@ run_test test_video_config_gets_safe_mac_defaults_without_changing_resolution
 run_test test_second_run_is_byte_identical
 run_test test_app_builder_excludes_personal_prefix_and_backup_engine
 run_test test_app_builder_returns_absolute_path_for_relative_output
+run_test test_prefix_links_are_sanitized_then_refreshed_for_current_user
 run_test test_privacy_scanner_rejects_account_and_game_data
 run_test test_privacy_scanner_accepts_bootstrap_only_prefix
 run_test test_dmg_builder_stages_exact_payload_and_valid_checksum

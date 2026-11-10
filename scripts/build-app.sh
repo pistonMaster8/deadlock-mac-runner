@@ -74,6 +74,8 @@ else
   rm -f "$PREFIX/dosdevices/y:"
 fi
 
+WINEPREFIX="$PREFIX" zsh "$ROOT_DIR/scripts/sanitize-prefix.sh"
+
 SETUP_DIR="$PREFIX/drive_c/DeadlockSetup"
 mkdir -p "$SETUP_DIR"
 cp "$ROOT_DIR/app/bootstrap.cmd" "$SETUP_DIR/bootstrap.cmd"
@@ -88,10 +90,13 @@ fi
 
 cp "$ROOT_DIR/scripts/apply-deadlock-fixes.sh" \
   "$DEST_APP/Contents/Resources/Scripts/DeadlockFixes"
+cp "$ROOT_DIR/scripts/refresh-user-links.sh" \
+  "$DEST_APP/Contents/Resources/Scripts/UserLinks"
 cp "$ROOT_DIR/app/StartupScript" \
   "$DEST_APP/Contents/Resources/Scripts/StartupScript"
 chmod +x \
   "$DEST_APP/Contents/Resources/Scripts/DeadlockFixes" \
+  "$DEST_APP/Contents/Resources/Scripts/UserLinks" \
   "$DEST_APP/Contents/Resources/Scripts/StartupScript"
 
 PLIST="$DEST_APP/Contents/Info.plist"
