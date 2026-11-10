@@ -254,6 +254,43 @@ test_privacy_scanner_accepts_bootstrap_only_prefix() {
   [[ $result -eq 0 ]] || fail "privacy scanner rejected a bootstrap-only prefix"
 }
 
+test_dmg_builder_stages_exact_payload_and_valid_checksum() {
+  local temp_dir app output_dir staging actual expected result
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  output_dir="$temp_dir/dist"
+  mkdir -p "$app/Contents/MacOS"
+  print -r -- 'fake app' > "$app/Contents/MacOS/launcher"
+
+  DEADLOCK_RUNNER_TEST_MODE=1 \
+    zsh "$ROOT_DIR/scripts/build-dmg.sh" "$app" "$output_dir" || return 1
+
+  staging="$output_dir/.dmg-staging"
+  expected=$'Applications\nDeadlock Runner.app\nINSTALL.txt'
+  actual=$(find "$staging" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
+  [[ "$actual" == "$expected" ]] || fail "DMG staging payload differs:\n$actual" || return 1
+  [[ -L "$staging/Applications" ]] || fail "Applications item is not a symlink" || return 1
+  [[ "$(readlink "$staging/Applications")" == '/Applications' ]] || fail "Applications link has the wrong target" || return 1
+  [[ -d "$staging/Deadlock Runner.app" ]] || fail "runner app is absent from DMG staging" || return 1
+  [[ -f "$staging/INSTALL.txt" ]] || fail "install guide is absent from DMG staging" || return 1
+  [[ -f "$output_dir/Deadlock-Runner-macOS.dmg" ]] || fail "DMG output is absent" || return 1
+  [[ -f "$output_dir/Deadlock-Runner-macOS.dmg.sha256" ]] || fail "checksum output is absent" || return 1
+
+  (cd "$output_dir" && shasum -a 256 -c 'Deadlock-Runner-macOS.dmg.sha256')
+  result=$?
+  rm -rf "$temp_dir"
+  [[ $result -eq 0 ]] || fail "generated checksum did not verify"
+}
+
+test_pages_document_is_valid_html() {
+  local page="$ROOT_DIR/docs/index.html"
+  [[ -f "$page" ]] || {
+    fail "GitHub Pages index is missing"
+    return 1
+  }
+  xmllint --html --noout "$page" >/dev/null 2>&1 || fail "GitHub Pages index is not valid HTML"
+}
+
 run_test() {
   local name=$1
   if "$name"; then
@@ -273,6 +310,8 @@ run_test test_second_run_is_byte_identical
 run_test test_app_builder_excludes_personal_prefix_and_backup_engine
 run_test test_privacy_scanner_rejects_account_and_game_data
 run_test test_privacy_scanner_accepts_bootstrap_only_prefix
+run_test test_dmg_builder_stages_exact_payload_and_valid_checksum
+run_test test_pages_document_is_valid_html
 
 print -- "$PASS_COUNT passed, $FAIL_COUNT failed"
 (( FAIL_COUNT == 0 ))

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A preconfigured Deadlock Wine runner for Apple Silicon Macs, with guided Steam setup.">
+  <title>Deadlock Runner for Mac</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <p class="eyebrow">Community compatibility build</p>
+      <h1>Deadlock Runner<br><span>for Apple Silicon Macs</span></h1>
+      <p class="lede">Drag one app into Applications, sign in to Steam, install Deadlock, and play with the working renderer, video, and controller fixes already automated.</p>
+      <div class="actions">
+        <a class="primary" href="https://github.com/pistonMaster8/deadlock-mac-runner/releases/latest">Download the latest DMG</a>
+        <a class="secondary" href="https://github.com/pistonMaster8/deadlock-mac-runner">View source</a>
+      </div>
+      <p class="requirements">Apple Silicon · macOS 14.6+ · Steam account with Deadlock access</p>
+    </header>
+
+    <section aria-labelledby="install-heading">
+      <p class="section-number">01</p>
+      <h2 id="install-heading">From download to game</h2>
+      <ol class="steps">
+        <li><strong>Install</strong><span>Open the DMG and drag Deadlock Runner into Applications.</span></li>
+        <li><strong>Open safely</strong><span>Control-click the app, choose Open, and approve the macOS warning.</span></li>
+        <li><strong>Sign in</strong><span>The official Steam installer runs. Sign in and install Deadlock from your Library.</span></li>
+        <li><strong>Play</strong><span>Launch Deadlock in Steam. The runner reapplies its fixes whenever it starts.</span></li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="fixes-heading">
+      <p class="section-number">02</p>
+      <h2 id="fixes-heading">What the runner carries forward</h2>
+      <div class="grid">
+        <article><h3>Known-good engine</h3><p>Wine Sikarugir 10.0 revision 6 with ESYNC and MSYNC enabled.</p></article>
+        <article><h3>DirectX 11</h3><p>Deadlock is returned to DX11 when an update restores the Vulkan default.</p></article>
+        <article><h3>Safe video start</h3><p>Mac GPU identifiers and stable windowed settings are corrected without forcing a display resolution.</p></article>
+        <article><h3>Controller repair</h3><p>The Xbox mapping and controller glyph mode fixes are applied idempotently with backups.</p></article>
+      </div>
+    </section>
+
+    <section class="privacy" aria-labelledby="privacy-heading">
+      <p class="section-number">03</p>
+      <h2 id="privacy-heading">Your Steam account stays yours</h2>
+      <p>The download contains no login, userdata, installed game, or personal Steam library. A release-time privacy scan checks the app before the DMG is created. Steam and Deadlock come through Valve’s normal installer and client.</p>
+    </section>
+  </main>
+  <footer>
+    <p>Unofficial community project. Not affiliated with Valve, Apple, Wine, or Sikarugir.</p>
+  </footer>
+</body>
+</html>
