@@ -249,18 +249,22 @@ test_prefix_links_are_sanitized_then_refreshed_for_current_user() {
   user_dir="$prefix/drive_c/users/runner"
   friend_home="$temp_dir/friend home"
   mkdir -p "$user_dir" "$friend_home/Documents" "$friend_home/Desktop" "$friend_home/Downloads" \
-    "$friend_home/Music" "$friend_home/Pictures" "$friend_home/Movies" "$friend_home/Templates"
+    "$friend_home/Music" "$friend_home/Pictures" "$friend_home/Movies" "$friend_home/Templates" \
+    "$prefix/dosdevices"
   ln -s '/Users/builder/Documents' "$user_dir/Documents"
   ln -s '/Users/builder/Desktop' "$user_dir/Desktop"
+  ln -s / "$prefix/dosdevices/z:"
 
   WINEPREFIX="$prefix" zsh "$ROOT_DIR/scripts/sanitize-prefix.sh" || return 1
   [[ ! -e "$user_dir/Documents" && ! -L "$user_dir/Documents" ]] || fail "builder Documents link survived sanitization" || return 1
   [[ ! -e "$user_dir/Desktop" && ! -L "$user_dir/Desktop" ]] || fail "builder Desktop link survived sanitization" || return 1
+  [[ ! -e "$prefix/dosdevices/z:" && ! -L "$prefix/dosdevices/z:" ]] || fail "root z: link survived signing sanitization" || return 1
 
   HOME="$friend_home" WINEPREFIX="$prefix" zsh "$ROOT_DIR/scripts/refresh-user-links.sh" || return 1
   [[ "$(readlink "$user_dir/Documents")" == "$friend_home/Documents" ]] || fail "Documents did not refresh to the current home" || return 1
   [[ "$(readlink "$user_dir/Desktop")" == "$friend_home/Desktop" ]] || fail "Desktop did not refresh to the current home" || return 1
   [[ "$(readlink "$user_dir/Downloads")" == "$friend_home/Downloads" ]] || fail "Downloads did not refresh to the current home" || return 1
+  [[ "$(readlink "$prefix/dosdevices/z:")" == '/' ]] || fail "Wine z: drive was not restored for runtime" || return 1
 
   result=0
   rm -rf "$temp_dir"

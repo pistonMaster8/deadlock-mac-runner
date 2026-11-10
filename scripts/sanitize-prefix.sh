@@ -12,3 +12,5 @@ while IFS= read -r -d '' link; do
     rm -f "$link"
   fi
 done < <(find "$PREFIX" -type l -print0 2>/dev/null)
+
+rm -f "$PREFIX/dosdevices/z:"

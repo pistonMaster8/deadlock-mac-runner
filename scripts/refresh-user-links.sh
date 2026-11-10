@@ -3,7 +3,17 @@
 set -u
 
 PREFIX=${WINEPREFIX:-}
-[[ -n "$PREFIX" && -d "$PREFIX/drive_c/users" ]] || exit 0
+[[ -n "$PREFIX" ]] || exit 0
+
+mkdir -p "$PREFIX/dosdevices"
+if [[ -L "$PREFIX/dosdevices/z:" ]]; then
+  rm -f "$PREFIX/dosdevices/z:"
+fi
+if [[ ! -e "$PREFIX/dosdevices/z:" ]]; then
+  ln -s / "$PREFIX/dosdevices/z:"
+fi
+
+[[ -d "$PREFIX/drive_c/users" ]] || exit 0
 
 typeset -a candidates
 candidates=("$PREFIX/drive_c/users/runner" "$PREFIX"/drive_c/users/*(N/))
