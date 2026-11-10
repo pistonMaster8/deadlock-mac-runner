@@ -164,8 +164,9 @@ create_fake_source_app() {
   print -r -- 'game binary' > "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock/game/bin/win64/deadlock.exe"
   print -r -- '#!/bin/sh' > "$app/Contents/Resources/Scripts/StartupScript"
   chmod +x "$app/Contents/Resources/Scripts/StartupScript"
-  print -r -- 'fake launcher' > "$app/Contents/MacOS/launcher"
-  chmod +x "$app/Contents/MacOS/launcher"
+  print -r -- 'fake launcher' > "$app/Contents/MacOS/Sikarugir"
+  chmod +x "$app/Contents/MacOS/Sikarugir"
+  ln -s Sikarugir "$app/Contents/MacOS/launcher"
 
   plutil -create xml1 "$app/Contents/Info.plist"
   plutil -insert CFBundleName -string 'Megabonk Runner' "$app/Contents/Info.plist"
@@ -205,6 +206,7 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
   [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/SteamSetup.exe" ]] || fail "Steam installer was not staged" || return 1
   [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/bootstrap.cmd" ]] || fail "bootstrap command was not staged" || return 1
   [[ -x "$built_app/Contents/Resources/Scripts/DeadlockFixes" ]] || fail "Deadlock startup patcher was not installed" || return 1
+  [[ -f "$built_app/Contents/MacOS/launcher" && ! -L "$built_app/Contents/MacOS/launcher" ]] || fail "main launcher is still a symlink and cannot be signed" || return 1
 
   [[ "$(plutil -extract CFBundleName raw "$built_app/Contents/Info.plist")" == 'Deadlock Runner' ]] || fail "bundle name was not updated" || return 1
   [[ "$(plutil -extract CFBundleIdentifier raw "$built_app/Contents/Info.plist")" == 'io.github.desmondwebb.deadlock-runner' ]] || fail "bundle identifier was not updated" || return 1

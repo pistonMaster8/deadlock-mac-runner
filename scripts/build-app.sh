@@ -35,6 +35,13 @@ rsync -a \
   --exclude '/Contents/Logs' \
   "$SOURCE_APP/" "$DEST_APP/"
 
+MAIN_EXECUTABLE="$DEST_APP/Contents/MacOS/launcher"
+if [[ -L "$MAIN_EXECUTABLE" ]]; then
+  cp -p "$MAIN_EXECUTABLE" "$MAIN_EXECUTABLE.regular"
+  rm -f "$MAIN_EXECUTABLE"
+  mv -f "$MAIN_EXECUTABLE.regular" "$MAIN_EXECUTABLE"
+fi
+
 PREFIX="$DEST_APP/Contents/SharedSupport/prefix"
 mkdir -p "$PREFIX"
 
