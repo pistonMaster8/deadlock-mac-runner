@@ -11,6 +11,9 @@ if [[ -z "$SOURCE_APP" || -z "$OUTPUT_DIR" ]]; then
   exit 2
 fi
 
+SOURCE_APP=${SOURCE_APP:A}
+OUTPUT_DIR=${OUTPUT_DIR:A}
+
 if [[ ! -d "$SOURCE_APP/Contents" ]]; then
   print -u2 -- "source app is invalid: $SOURCE_APP"
   exit 2

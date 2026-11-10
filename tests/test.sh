@@ -216,6 +216,30 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
   return $result
 }
 
+test_app_builder_returns_absolute_path_for_relative_output() {
+  local temp_dir source_app steam_setup built_path result
+  temp_dir=$(mktemp -d)
+  source_app="$temp_dir/Source Runner.app"
+  steam_setup="$temp_dir/SteamSetup.exe"
+  create_fake_source_app "$source_app"
+  print -r -- 'official installer fixture' > "$steam_setup"
+
+  built_path=$(
+    cd "$temp_dir" || exit 1
+    DEADLOCK_RUNNER_TEST_MODE=1 STEAM_SETUP_SOURCE="$steam_setup" \
+      zsh "$ROOT_DIR/scripts/build-app.sh" "$source_app" 'relative output' | tail -n 1
+  )
+  result=$?
+  if [[ $result -eq 0 && "$built_path" == /* && -d "$built_path" ]]; then
+    result=0
+  else
+    fail "relative output did not resolve to an absolute built-app path: $built_path"
+    result=1
+  fi
+  rm -rf "$temp_dir"
+  return $result
+}
+
 test_privacy_scanner_rejects_account_and_game_data() {
   local temp_dir app steam_root result
   [[ -x "$ROOT_DIR/scripts/scan-private-data.sh" ]] || {
@@ -308,6 +332,7 @@ run_test test_user_glyph_mode_is_forced_to_controller
 run_test test_video_config_gets_safe_mac_defaults_without_changing_resolution
 run_test test_second_run_is_byte_identical
 run_test test_app_builder_excludes_personal_prefix_and_backup_engine
+run_test test_app_builder_returns_absolute_path_for_relative_output
 run_test test_privacy_scanner_rejects_account_and_game_data
 run_test test_privacy_scanner_accepts_bootstrap_only_prefix
 run_test test_dmg_builder_stages_exact_payload_and_valid_checksum
