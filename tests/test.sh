@@ -145,6 +145,115 @@ test_second_run_is_byte_identical() {
   return $result
 }
 
+create_fake_source_app() {
+  local app=$1
+  mkdir -p \
+    "$app/Contents/MacOS" \
+    "$app/Contents/Resources/Scripts" \
+    "$app/Contents/Frameworks" \
+    "$app/Contents/SharedSupport/wine/bin" \
+    "$app/Contents/SharedSupport/wine-11.0_1-backup-20261108" \
+    "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config" \
+    "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/userdata/12345" \
+    "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock/game/bin/win64"
+
+  print -r -- 'wine sikarugir 10.0 (revision 6)' > "$app/Contents/SharedSupport/wine/version"
+  print -r -- 'wine sikarugir 11.0 (revision 1)' > "$app/Contents/SharedSupport/wine-11.0_1-backup-20261108/version"
+  print -r -- 'personal login' > "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config/loginusers.vdf"
+  print -r -- 'personal userdata' > "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/userdata/12345/localconfig.vdf"
+  print -r -- 'game binary' > "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock/game/bin/win64/deadlock.exe"
+  print -r -- '#!/bin/sh' > "$app/Contents/Resources/Scripts/StartupScript"
+  chmod +x "$app/Contents/Resources/Scripts/StartupScript"
+  print -r -- 'fake launcher' > "$app/Contents/MacOS/launcher"
+  chmod +x "$app/Contents/MacOS/launcher"
+
+  plutil -create xml1 "$app/Contents/Info.plist"
+  plutil -insert CFBundleName -string 'Megabonk Runner' "$app/Contents/Info.plist"
+  plutil -insert CFBundleIdentifier -string 'com.example.megabonk' "$app/Contents/Info.plist"
+  plutil -insert CFBundleShortVersionString -string '1.0' "$app/Contents/Info.plist"
+  plutil -insert CFBundleVersion -string '1.0.21' "$app/Contents/Info.plist"
+  plutil -insert LSMinimumSystemVersion -string '14.6' "$app/Contents/Info.plist"
+  plutil -insert 'Program Name and Path' -string '/Program Files (x86)/Steam/steam.exe' "$app/Contents/Info.plist"
+  plutil -insert 'Program Flags' -string '' "$app/Contents/Info.plist"
+  plutil -insert D9VK -integer 1 "$app/Contents/Info.plist"
+  plutil -insert DXVK -integer 0 "$app/Contents/Info.plist"
+  plutil -insert D3DMETAL -integer 0 "$app/Contents/Info.plist"
+  plutil -insert WINEESYNC -integer 1 "$app/Contents/Info.plist"
+  plutil -insert WINEMSYNC -integer 1 "$app/Contents/Info.plist"
+  plutil -insert 'Try To Use GPU Info' -integer 0 "$app/Contents/Info.plist"
+}
+
+test_app_builder_excludes_personal_prefix_and_backup_engine() {
+  local temp_dir source_app output_dir built_app steam_setup
+  temp_dir=$(mktemp -d)
+  source_app="$temp_dir/Source Runner.app"
+  output_dir="$temp_dir/output with spaces"
+  steam_setup="$temp_dir/SteamSetup.exe"
+  create_fake_source_app "$source_app"
+  print -r -- 'official installer fixture' > "$steam_setup"
+
+  DEADLOCK_RUNNER_TEST_MODE=1 STEAM_SETUP_SOURCE="$steam_setup" \
+    zsh "$ROOT_DIR/scripts/build-app.sh" "$source_app" "$output_dir" || return 1
+  built_app="$output_dir/Deadlock Runner.app"
+
+  [[ -f "$built_app/Contents/SharedSupport/wine/version" ]] || fail "active Wine engine was not preserved" || return 1
+  assert_contains "$built_app/Contents/SharedSupport/wine/version" 'wine sikarugir 10.0 (revision 6)' || return 1
+  [[ ! -e "$built_app/Contents/SharedSupport/wine-11.0_1-backup-20261108" ]] || fail "backup Wine engine was staged" || return 1
+  [[ ! -e "$built_app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config/loginusers.vdf" ]] || fail "Steam login data was staged" || return 1
+  [[ ! -e "$built_app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/userdata" ]] || fail "Steam userdata was staged" || return 1
+  [[ ! -e "$built_app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock" ]] || fail "Deadlock game files were staged" || return 1
+  [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/SteamSetup.exe" ]] || fail "Steam installer was not staged" || return 1
+  [[ -f "$built_app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup/bootstrap.cmd" ]] || fail "bootstrap command was not staged" || return 1
+  [[ -x "$built_app/Contents/Resources/Scripts/DeadlockFixes" ]] || fail "Deadlock startup patcher was not installed" || return 1
+
+  [[ "$(plutil -extract CFBundleName raw "$built_app/Contents/Info.plist")" == 'Deadlock Runner' ]] || fail "bundle name was not updated" || return 1
+  [[ "$(plutil -extract CFBundleIdentifier raw "$built_app/Contents/Info.plist")" == 'io.github.desmondwebb.deadlock-runner' ]] || fail "bundle identifier was not updated" || return 1
+  [[ "$(plutil -extract 'Program Name and Path' raw "$built_app/Contents/Info.plist")" == '/windows/system32/cmd.exe' ]] || fail "wrapper does not launch cmd.exe" || return 1
+  [[ "$(plutil -extract 'Program Flags' raw "$built_app/Contents/Info.plist")" == '/c C:\DeadlockSetup\bootstrap.cmd' ]] || fail "wrapper flags do not launch the bootstrap" || return 1
+
+  local result=0
+  rm -rf "$temp_dir"
+  return $result
+}
+
+test_privacy_scanner_rejects_account_and_game_data() {
+  local temp_dir app steam_root result
+  [[ -x "$ROOT_DIR/scripts/scan-private-data.sh" ]] || {
+    fail "privacy scanner is missing"
+    return 1
+  }
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  steam_root="$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam"
+  mkdir -p "$steam_root/config" "$steam_root/steamapps/common/Deadlock"
+  print -r -- 'account' > "$steam_root/config/loginusers.vdf"
+  print -r -- 'game' > "$steam_root/steamapps/common/Deadlock/deadlock.exe"
+
+  zsh "$ROOT_DIR/scripts/scan-private-data.sh" "$app" >/dev/null 2>&1
+  result=$?
+  rm -rf "$temp_dir"
+  [[ $result -ne 0 ]] || fail "privacy scanner accepted Steam account/game data"
+}
+
+test_privacy_scanner_accepts_bootstrap_only_prefix() {
+  local temp_dir app setup_root result
+  [[ -x "$ROOT_DIR/scripts/scan-private-data.sh" ]] || {
+    fail "privacy scanner is missing"
+    return 1
+  }
+  temp_dir=$(mktemp -d)
+  app="$temp_dir/Deadlock Runner.app"
+  setup_root="$app/Contents/SharedSupport/prefix/drive_c/DeadlockSetup"
+  mkdir -p "$setup_root"
+  print -r -- 'installer' > "$setup_root/SteamSetup.exe"
+  print -r -- '@echo off' > "$setup_root/bootstrap.cmd"
+
+  zsh "$ROOT_DIR/scripts/scan-private-data.sh" "$app"
+  result=$?
+  rm -rf "$temp_dir"
+  [[ $result -eq 0 ]] || fail "privacy scanner rejected a bootstrap-only prefix"
+}
+
 run_test() {
   local name=$1
   if "$name"; then
@@ -161,6 +270,9 @@ run_test test_controller_tab_binding_is_added_once
 run_test test_user_glyph_mode_is_forced_to_controller
 run_test test_video_config_gets_safe_mac_defaults_without_changing_resolution
 run_test test_second_run_is_byte_identical
+run_test test_app_builder_excludes_personal_prefix_and_backup_engine
+run_test test_privacy_scanner_rejects_account_and_game_data
+run_test test_privacy_scanner_accepts_bootstrap_only_prefix
 
 print -- "$PASS_COUNT passed, $FAIL_COUNT failed"
 (( FAIL_COUNT == 0 ))
