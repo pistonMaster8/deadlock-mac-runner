@@ -316,6 +316,7 @@ test_dmg_builder_stages_exact_payload_and_valid_checksum() {
   output_dir="$temp_dir/dist"
   mkdir -p "$app/Contents/MacOS"
   print -r -- 'fake app' > "$app/Contents/MacOS/launcher"
+  xattr -w com.deadlock.runner.test 'signature-metadata' "$app/Contents/MacOS/launcher"
 
   DEADLOCK_RUNNER_TEST_MODE=1 \
     zsh "$ROOT_DIR/scripts/build-dmg.sh" "$app" "$output_dir" || return 1
@@ -327,6 +328,7 @@ test_dmg_builder_stages_exact_payload_and_valid_checksum() {
   [[ -L "$staging/Applications" ]] || fail "Applications item is not a symlink" || return 1
   [[ "$(readlink "$staging/Applications")" == '/Applications' ]] || fail "Applications link has the wrong target" || return 1
   [[ -d "$staging/Deadlock Runner.app" ]] || fail "runner app is absent from DMG staging" || return 1
+  [[ "$(xattr -p com.deadlock.runner.test "$staging/Deadlock Runner.app/Contents/MacOS/launcher" 2>/dev/null)" == 'signature-metadata' ]] || fail "DMG staging dropped code-signing metadata" || return 1
   [[ -f "$staging/INSTALL.txt" ]] || fail "install guide is absent from DMG staging" || return 1
   [[ -f "$output_dir/Deadlock-Runner-macOS.dmg" ]] || fail "DMG output is absent" || return 1
   [[ -f "$output_dir/Deadlock-Runner-macOS.dmg.sha256" ]] || fail "checksum output is absent" || return 1

@@ -32,7 +32,7 @@ rm -rf "$STAGING"
 rm -f "$DMG" "$CHECKSUM" "$DMG_TEMP" "$DMG.tmp" "$DMG.tmp.dmg"
 mkdir -p "$STAGING"
 
-rsync -a "$APP_PATH" "$STAGING/"
+rsync -aE "$APP_PATH" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 cp "$ROOT_DIR/INSTALL.txt" "$STAGING/INSTALL.txt"
 
