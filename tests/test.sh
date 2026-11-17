@@ -69,13 +69,14 @@ test_controller_tab_binding_is_added_once() {
   temp_dir=$(mktemp -d)
   deadlock_root=$(make_deadlock_tree "$temp_dir/Deadlock")
   mapping="$deadlock_root/game/citadel/cfg/xbox_one_mapping.vdf"
-  printf '%b\n' '"controller_mappings"\n{\n\t"revision"\t\t"112"\n\t"bindings"\n\t{\n\t\t"binding"\t\t"game_action GameControls Ping, , "\n\t}\n}' > "$mapping"
+  printf '%b\n' '"controller_mappings"\n{\n\t"revision"\t\t"112"\n\t"bindings"\n\t{\n\t\t"binding"\t\t"game_action GameControls Ping, , "\n\t}\n\t"button_capture"\n\t{\n\t\t"bindings"\n\t\t{\n\t\t\t"binding"\t\t"controller_action SCREENSHOT, , "\n\t\t}\n\t}\n}' > "$mapping"
 
   run_patcher "$temp_dir/prefix" "$deadlock_root" || return 1
   run_patcher "$temp_dir/prefix" "$deadlock_root" || return 1
 
   assert_contains "$mapping" $'"revision"\t\t"113"' || return 1
-  assert_count 1 $'"binding"\t\t"key_press TAB, , "' "$mapping"
+  assert_count 1 $'"binding"\t\t"key_press T, , "' "$mapping" || return 1
+  assert_count 1 $'"binding"\t\t"key_press TAB, , "' "$mapping" || return 1
   local result=$?
   rm -rf "$temp_dir"
   return $result
@@ -139,6 +140,34 @@ test_video_config_gets_safe_mac_defaults_without_changing_resolution() {
   return $result
 }
 
+test_ptt_uses_headset_without_game_process_capture() {
+  local temp_dir cfg_dir machine_file keys_file before after
+  temp_dir=$(mktemp -d)
+  cfg_dir="$temp_dir/prefix/drive_c/Program Files (x86)/Steam/userdata/12345/1422450/local/cfg"
+  mkdir -p "$cfg_dir"
+  machine_file="$cfg_dir/machine_convars.vcfg"
+  keys_file="$cfg_dir/user_keys_0_slot0.vcfg"
+  printf '%b\n' '"config"\n{\n\t"convars"\n\t{\n\t\t"voice_always_sample_mic$2"\t\t"true"\n\t\t"voice_device_override"\t\t"MacBook Air Microphone"\n\t\t"voice_threshold"\t\t"-120"\n\t}\n}' > "$machine_file"
+  printf '%b\n' '"config"\n{\n\t"bindings"\n\t{\n\t\t"F7"\t\t"toggleconsole"\n\t}\n}' > "$keys_file"
+
+  run_patcher "$temp_dir/prefix" || return 1
+
+  assert_contains "$machine_file" $'"voice_in_process"\t\t"false"' || return 1
+  assert_contains "$machine_file" $'"voice_always_sample_mic$2"\t\t"false"' || return 1
+  assert_contains "$machine_file" $'"voice_device_override"\t\t"Mike’s AirPods Max"' || return 1
+  ! grep -Fq -- '"voice_threshold"' "$machine_file" || fail "voice threshold override was not removed" || return 1
+  assert_contains "$keys_file" $'"T"\t\t"+voicerecord"' || return 1
+
+  before=$(shasum -a 256 "$machine_file" "$keys_file")
+  run_patcher "$temp_dir/prefix" || return 1
+  after=$(shasum -a 256 "$machine_file" "$keys_file")
+  [[ "$before" == "$after" ]] || fail "PTT patch was not idempotent" || return 1
+
+  local result=0
+  rm -rf "$temp_dir"
+  return $result
+}
+
 test_second_run_is_byte_identical() {
   local temp_dir deadlock_root boot_file mapping cfg_dir config_file video_file before after
   temp_dir=$(mktemp -d)
@@ -176,6 +205,7 @@ create_fake_source_app() {
     "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/config" \
     "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/userdata/12345" \
     "$app/Contents/SharedSupport/prefix/drive_c/Program Files (x86)/Steam/steamapps/common/Deadlock/game/bin/win64"
+  print -r -- 'fake icon' > "$app/Contents/Resources/Configure.icns"
 
   print -r -- 'wine sikarugir 10.0 (revision 6)' > "$app/Contents/SharedSupport/wine/version"
   print -r -- 'wine sikarugir 11.0 (revision 1)' > "$app/Contents/SharedSupport/wine-11.0_1-backup-20261108/version"
@@ -232,7 +262,11 @@ test_app_builder_excludes_personal_prefix_and_backup_engine() {
     assert_contains "$built_app/Contents/SharedSupport/prefix/user.reg" "\"$keyboard_key\"=\"Y\"" || return 1
   done
   [[ -x "$built_app/Contents/Resources/Scripts/DeadlockFixes" ]] || fail "Deadlock startup patcher was not installed" || return 1
+  [[ -x "$built_app/Contents/Resources/Scripts/QuitScript" ]] || fail "corrected QuitScript was not installed" || return 1
   [[ -f "$built_app/Contents/MacOS/launcher" && ! -L "$built_app/Contents/MacOS/launcher" ]] || fail "main launcher is still a symlink and cannot be signed" || return 1
+  [[ "$(plutil -extract D9VK raw "$built_app/Contents/Info.plist")" == '1' ]] || fail "D9VK was not restored" || return 1
+  [[ "$(plutil -extract DXVK raw "$built_app/Contents/Info.plist")" == '0' ]] || fail "DXVK was enabled unexpectedly" || return 1
+  [[ "$(plutil -extract D3DMETAL raw "$built_app/Contents/Info.plist")" == '0' ]] || fail "D3DMetal was not disabled" || return 1
 
   [[ "$(plutil -extract CFBundleName raw "$built_app/Contents/Info.plist")" == 'Deadlock Runner' ]] || fail "bundle name was not updated" || return 1
   [[ "$(plutil -extract CFBundleIdentifier raw "$built_app/Contents/Info.plist")" == 'io.github.desmondwebb.deadlock-runner' ]] || fail "bundle identifier was not updated" || return 1
@@ -478,6 +512,7 @@ run_test test_video_config_gets_safe_mac_defaults_without_changing_resolution
 run_test test_second_run_is_byte_identical
 run_test test_app_builder_excludes_personal_prefix_and_backup_engine
 run_test test_app_builder_rejects_source_destination_overlap_without_deleting_source
+run_test test_ptt_uses_headset_without_game_process_capture
 run_test test_app_builder_returns_absolute_path_for_relative_output
 run_test test_prefix_links_are_sanitized_then_refreshed_for_current_user
 run_test test_privacy_scanner_rejects_account_and_game_data

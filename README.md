@@ -27,6 +27,7 @@ Requirements: Apple Silicon, macOS 14.6 or newer, a Steam account with Deadlock 
 - Conservative Mac video identifiers/defaults applied without replacing the display resolution.
 - Xbox controller mapping revision 113 with the additional `TAB` binding alongside Ping.
 - Controller glyph mode set to `2` when the per-account Deadlock configuration exists.
+- Voice chat keeps the AirPods Max microphone, samples only while PTT is active, and moves voice processing out of the game process.
 
 Every edit is repeatable and keeps a `.deadlock-runner.bak` copy of the original file.
 

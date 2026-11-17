@@ -166,10 +166,13 @@ cp "$ROOT_DIR/scripts/refresh-user-links.sh" \
   "$DEST_APP/Contents/Resources/Scripts/UserLinks"
 cp "$ROOT_DIR/app/StartupScript" \
   "$DEST_APP/Contents/Resources/Scripts/StartupScript"
+cp "$ROOT_DIR/app/QuitScript" \
+  "$DEST_APP/Contents/Resources/Scripts/QuitScript"
 chmod +x \
   "$DEST_APP/Contents/Resources/Scripts/DeadlockFixes" \
   "$DEST_APP/Contents/Resources/Scripts/UserLinks" \
-  "$DEST_APP/Contents/Resources/Scripts/StartupScript"
+  "$DEST_APP/Contents/Resources/Scripts/StartupScript" \
+  "$DEST_APP/Contents/Resources/Scripts/QuitScript"
 
 PLIST="$DEST_APP/Contents/Info.plist"
 set_plist_string() {

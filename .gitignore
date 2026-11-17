@@ -2,6 +2,7 @@
 .worktrees/
 .superpowers/
 build/
+tools/native-launcher/.build/
 dist/
 *.dmg
 *.dmg.sha256
