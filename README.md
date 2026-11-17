@@ -22,11 +22,12 @@ Requirements: Apple Silicon, macOS 14.6 or newer, a Steam account with Deadlock 
 ## What is preconfigured
 
 - Wine Sikarugir 10.0 revision 6—the version verified on the original runner.
-- ESYNC and MSYNC enabled; D9VK enabled; DXVK and D3DMetal disabled.
+- ESYNC and MSYNC enabled; D3DMetal enabled for the DirectX 11 path; DXVK and D9VK disabled.
 - Deadlock’s boot renderer changed from Vulkan to DirectX 11 after installation and updates.
 - Conservative Mac video identifiers/defaults applied without replacing the display resolution.
 - Xbox controller mapping revision 113 with the additional `TAB` binding alongside Ping.
 - Controller glyph mode set to `2` when the per-account Deadlock configuration exists.
+- Voice chat keeps the AirPods Max microphone, samples only while PTT is active, and moves voice processing out of the game process.
 
 Every edit is repeatable and keeps a `.deadlock-runner.bak` copy of the original file.
 

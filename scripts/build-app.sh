@@ -166,10 +166,13 @@ cp "$ROOT_DIR/scripts/refresh-user-links.sh" \
   "$DEST_APP/Contents/Resources/Scripts/UserLinks"
 cp "$ROOT_DIR/app/StartupScript" \
   "$DEST_APP/Contents/Resources/Scripts/StartupScript"
+cp "$ROOT_DIR/app/QuitScript" \
+  "$DEST_APP/Contents/Resources/Scripts/QuitScript"
 chmod +x \
   "$DEST_APP/Contents/Resources/Scripts/DeadlockFixes" \
   "$DEST_APP/Contents/Resources/Scripts/UserLinks" \
-  "$DEST_APP/Contents/Resources/Scripts/StartupScript"
+  "$DEST_APP/Contents/Resources/Scripts/StartupScript" \
+  "$DEST_APP/Contents/Resources/Scripts/QuitScript"
 
 PLIST="$DEST_APP/Contents/Info.plist"
 set_plist_string() {
@@ -197,9 +200,9 @@ set_plist_string CFBundleVersion '1.0.0'
 set_plist_string LSMinimumSystemVersion '14.6'
 set_plist_string 'Program Name and Path' '/windows/system32/cmd.exe'
 set_plist_string 'Program Flags' '/c C:\DeadlockSetup\bootstrap.cmd'
-set_plist_integer D9VK 1
+set_plist_integer D9VK 0
 set_plist_integer DXVK 0
-set_plist_integer D3DMETAL 0
+set_plist_integer D3DMETAL 1
 set_plist_integer WINEESYNC 1
 set_plist_integer WINEMSYNC 1
 set_plist_integer 'Try To Use GPU Info' 0

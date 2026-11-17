@@ -112,12 +112,99 @@ patch_controller_mapping() {
 
   install_if_changed "$file" "$temp_file"
 }
+patch_controller_ptt_binding() {
+  local file=$1
+  patch_with_sed "$file" \
+    -e 's#^([[:space:]]*"binding"[[:space:]]+)"controller_action SCREENSHOT, , "#\1"key_press T, , "#'
+}
 
 patch_glyph_config() {
   local file=$1
   patch_with_sed "$file" \
     -e 's#^([[:space:]]*"steam_inputhandler_glyph_lock_mode"[[:space:]]+)"[^"]*"#\1"2"#'
 }
+patch_voice_config() {
+  local file=$1
+  patch_with_sed "$file" \
+    -e 's#^([[:space:]]*"voice_in_process"[[:space:]]+)"[^"]*"#\1"false"#' \
+    -e 's#^([[:space:]]*"voice_always_sample_mic\$[0-9]*"[[:space:]]+)"[^"]*"#\1"false"#' \
+    -e 's#^([[:space:]]*"voice_device_override"[[:space:]]+)"[^"]*"#\1"Mike’s AirPods Max"#' \
+    -e '/^[[:space:]]*"voice_threshold"[[:space:]]+/d' || return 1
+
+  local temp_file
+  temp_file=$(mktemp "$file.deadlock-runner.XXXXXX") || return 1
+  awk '
+    function brace_delta(value, copy, count) {
+      copy = value
+      count = gsub(/\{/, "{", copy)
+      copy = value
+      count -= gsub(/\}/, "}", copy)
+      return count
+    }
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*"voice_in_process"[[:space:]]+/) {
+        if (!found) {
+          print "\t\t\"voice_in_process\"\t\t\"false\""
+          found = 1
+        }
+        depth += brace_delta(line)
+        next
+      }
+      if (!found && depth == 2 && line ~ /^[[:space:]]*}/) {
+        print "\t\t\"voice_in_process\"\t\t\"false\""
+        found = 1
+      }
+      print line
+      depth += brace_delta(line)
+    }
+  ' "$file" > "$temp_file" || {
+    rm -f "$temp_file"
+    return 1
+  }
+
+  install_if_changed "$file" "$temp_file"
+}
+
+patch_ptt_key_config() {
+  local file=$1
+  [[ -f "$file" ]] || return 0
+
+  local temp_file
+  temp_file=$(mktemp "$file.deadlock-runner.XXXXXX") || return 1
+  awk '
+    function brace_delta(value, copy, count) {
+      copy = value
+      count = gsub(/\{/, "{", copy)
+      copy = value
+      count -= gsub(/\}/, "}", copy)
+      return count
+    }
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*"T"[[:space:]]+/) {
+        if (!found) {
+          print "\t\t\"T\"\t\t\"+voicerecord\""
+          found = 1
+        }
+        depth += brace_delta(line)
+        next
+      }
+      if (!found && depth == 2 && line ~ /^[[:space:]]*}/) {
+        print "\t\t\"T\"\t\t\"+voicerecord\""
+        found = 1
+      }
+      print line
+      depth += brace_delta(line)
+    }
+  ' "$file" > "$temp_file" || {
+    rm -f "$temp_file"
+    return 1
+  }
+
+  install_if_changed "$file" "$temp_file"
+}
+
 
 patch_video_config() {
   local file=$1
@@ -139,6 +226,7 @@ main() {
 
   patch_boot_renderer "$cfg_root/boot.vcfg" || return 1
   patch_controller_mapping "$cfg_root/xbox_one_mapping.vdf" || return 1
+  patch_controller_ptt_binding "$cfg_root/xbox_one_mapping.vdf" || return 1
 
   local userdata_root="$prefix/drive_c/Program Files (x86)/Steam/userdata"
   [[ -d "$userdata_root" ]] || return 0
@@ -149,6 +237,17 @@ main() {
   done < <(find "$userdata_root" -type f \
     \( -name 'user_convars.vcfg' -o -name 'user_convars_0_slot0.vcfg' \) \
     -path '*/1422450/*' -print0 2>/dev/null)
+
+  while IFS= read -r -d '' file; do
+    patch_voice_config "$file" || return 1
+  done < <(find "$userdata_root" -type f -name 'machine_convars.vcfg' \
+    -path '*/1422450/local/cfg/machine_convars.vcfg' -print0 2>/dev/null)
+
+  while IFS= read -r -d '' file; do
+    patch_ptt_key_config "$file" || return 1
+  done < <(find "$userdata_root" -type f -name 'user_keys_0_slot0.vcfg' \
+    -path '*/1422450/local/cfg/user_keys_0_slot0.vcfg' -print0 2>/dev/null)
+
 
   while IFS= read -r -d '' file; do
     patch_video_config "$file" || return 1
