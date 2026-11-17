@@ -1,0 +1,13 @@
+#!/bin/zsh
+
+set -u
+
+CONTENTSFOLD=${0:A:h:h:h}
+WINE_ROOT="$CONTENTSFOLD/SharedSupport/wine"
+WINEPREFIX="$CONTENTSFOLD/SharedSupport/prefix"
+FRAMEWORKS="$CONTENTSFOLD/Frameworks"
+export WINEPREFIX
+export DYLD_FALLBACK_LIBRARY_PATH="$WINE_ROOT/lib:$WINE_ROOT/lib64:$FRAMEWORKS:$FRAMEWORKS/GStreamer.framework/Libraries:/opt/wine/lib:/usr/lib:/usr/libexec:/usr/lib/system"
+
+[[ -x "$WINE_ROOT/bin/wineserver" ]] || exit 0
+"$WINE_ROOT/bin/wineserver" -k
